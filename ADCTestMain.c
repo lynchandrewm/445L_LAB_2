@@ -27,6 +27,8 @@
 // top of X-ohm potentiometer connected to +3.3V 
 #include <stdint.h>
 #include "ADCSWTrigger.h"
+#include "Fixed.h"
+#include "ST7735.h"
 #include "../inc/tm4c123gh6pm.h"
 #include "PLL.h"
 
@@ -40,9 +42,11 @@ long StartCritical (void);    // previous I bit, disable interrupts
 void EndCritical(long sr);    // restore I bit to previous value
 void WaitForInterrupt(void);  // low power mode
 
-uint32_t dumpADC[1000];
+
+uint16_t dumpADC[1000];
 uint32_t dumpTime[1000];
 uint16_t Index = 0;
+uint16_t adcHist[4096];
 
 
 volatile uint32_t ADCvalue;
@@ -81,9 +85,40 @@ void Timer0A_Handler(void){
   Index += 1;
 }
 
+void printHist(uint16_t* hist, uint32_t index, char* title){int32_t minX, maxX, minY, maxY;
+  int32_t xValues[index];
+  minX = 0; maxX = index; minY = 0; maxY = 0;
+  for(int i = 0; i < index; i++){
+    if(hist[i]){
+      minX = i;
+      break;
+    }
+  }
+  for(int i = index - 1; i < 0 ; i--){
+    if(hist[i]){
+      maxX = i;
+      break;
+    }
+  }
+  for(int i = 0; i < index; i++){
+    if(hist[i]>maxY){
+      maxY = hist[i];
+    }
+    if(hist[i]<minY){
+      minY = hist[i];
+    }
+    xValues[i] = i;
+  }
+  ST7735_XYplotInit(title, minX, maxX, minY, maxY);
+  ST7735_XYplot(index, xValues, (int32_t*)hist);
+}
+
 //calculate timeJitter 
-uint32_t calculateJitter(uint32_t timeDiffs[]){
-	int largestTDiff, smallestTDiff;
+uint32_t calculateJitter(){ uint16_t timeDiffs[999];
+  for(int i = 0; i < 999; i++){
+    timeDiffs[i] = dumpTime[i+1] - dumpTime[i];
+  }
+	uint32_t largestTDiff, smallestTDiff;
 	largestTDiff = smallestTDiff = timeDiffs[0];
 	//find smallest and largest time diffs
 	for(int i = 1; i < 999; i++){
@@ -97,21 +132,30 @@ uint32_t calculateJitter(uint32_t timeDiffs[]){
 	return largestTDiff - smallestTDiff;
 }
 
+void adcPMF(void){
+  for(int i = 0; i < 1000; i++){
+    adcHist[dumpADC[i]]++;
+  }
+  char* adcTitle = "ADC PMF";
+  printHist(adcHist, 4096, adcTitle);
+}
+
 // main to process the time recordings
-int main(void){uint32_t timeDiffs[999];
+int main(void){
+  DisableInterrupts();
   PLL_Init(Bus80MHz);                   // 80 MHz
   ADC0_InitSWTriggerSeq3_Ch9();         // allow time to finish activating
   Timer1_Init();
   Timer0A_Init100HzInt();               // set up Timer0A for 100 Hz interrupts
+  ST7735_InitR(INITR_REDTAB);
   EnableInterrupts();
   while(Index<1000){
     WaitForInterrupt();
   }
-	//process time recordings 
-  for(int i = 0; i < 999; i++){
-    timeDiffs[i] = dumpTime[i+1] - dumpTime[i];
-  }
-	int timeJitter = calculateJitter(timeDiffs);
+  
+  uint32_t timeJitter = calculateJitter();
+  adcPMF();
+  while(1){}
 }
 
 int main1(void){
@@ -131,7 +175,5 @@ int main1(void){
     PF1 ^= 0x02;  // toggles when running in main
   }
 }
-
-
 
 
