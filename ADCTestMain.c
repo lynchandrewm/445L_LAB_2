@@ -81,6 +81,22 @@ void Timer0A_Handler(void){
   Index += 1;
 }
 
+//calculate timeJitter 
+uint32_t calculateJitter(uint32_t timeDiffs[]){
+	int largestTDiff, smallestTDiff;
+	largestTDiff = smallestTDiff = timeDiffs[0];
+	//find smallest and largest time diffs
+	for(int i = 1; i < 999; i++){
+		if(timeDiffs[i] < smallestTDiff){
+			smallestTDiff = timeDiffs[i];
+		}
+		if(timeDiffs[i] > largestTDiff){
+			largestTDiff = timeDiffs[i];
+		}
+	}
+	return largestTDiff - smallestTDiff;
+}
+
 // main to process the time recordings
 int main(void){uint32_t timeDiffs[999];
   PLL_Init(Bus80MHz);                   // 80 MHz
@@ -91,9 +107,11 @@ int main(void){uint32_t timeDiffs[999];
   while(Index<1000){
     WaitForInterrupt();
   }
+	//process time recordings 
   for(int i = 0; i < 999; i++){
     timeDiffs[i] = dumpTime[i+1] - dumpTime[i];
   }
+	int timeJitter = calculateJitter(timeDiffs);
 }
 
 int main1(void){
@@ -113,5 +131,7 @@ int main1(void){
     PF1 ^= 0x02;  // toggles when running in main
   }
 }
+
+
 
 
