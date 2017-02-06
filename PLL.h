@@ -21,6 +21,9 @@
  http://users.ece.utexas.edu/~valvano/
  */
 
+#ifndef _PLL
+#define _PLL
+
 // The #define statement SYSDIV2 initializes
 // the PLL to the desired frequency.
 // SYSDIV = 400/freq -1
@@ -160,6 +163,8 @@ void PLL_Init(uint32_t freq);
 #define Bus3_175MHz 125
 #define Bus3_150MHz 126
 #define Bus3_125MHz 127
+
+#endif
 
 
 
