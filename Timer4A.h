@@ -1,6 +1,6 @@
-// Timer5A.h
+// Timer4A.h
 // Runs on LM4F120/TM4C123
-// Use Timer5A in periodic mode to request interrupts at a particular
+// Use Timer4A in periodic mode to request interrupts at a particular
 // period.
 // Daniel Valvano
 // Andrew Lync
@@ -24,15 +24,23 @@
  http://users.ece.utexas.edu/~valvano/
  */
 
-#ifndef __TIMER5AINTS_H__ // do not include more than once
-#define __TIMER5AINTS_H__
+#ifndef __TIMER4AINTS_H__ // do not include more than once
+#define __TIMER4AINTS_H__
 
-// ***************** Timer5A_Init ****************
-// Activate Timer5A interrupts to run user task periodically
+// ***************** Timer4A_Init ****************
+// Activate Timer4A interrupts to run user task periodically
 // Inputs:  task is a pointer to a user function
 //          period in units (1/clockfreq), 32 bits
 // Outputs: none
-void Timer5A_Init(uint32_t period);
+void Timer4A_Init(uint32_t period, uint8_t priority);
+
+void Timer4A_AddPeriodicThread(void(*task)(void));
+
+uint32_t Timer4A_ReadPeriodicTime(void);
+
+void Timer4A_ClearPeriodicTime(void);
+
+void Timer4A_ResetPeriodAndPriority(uint32_t period, uint32_t priority);
 
 
-#endif // __TIMER5AINTS_H__
+#endif // __TIMER4AINTS_H__

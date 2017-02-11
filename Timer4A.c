@@ -1,6 +1,6 @@
-// TIMER5A.c
+// TIMER4A.c
 // Runs on LM4F120/TM4C123
-// Use TIMER5A in periodic mode to request interrupts at a particular
+// Use TIMER4A in periodic mode to request interrupts at a particular
 // period.
 // Daniel Valvano
 // Andrew Lynch
@@ -28,7 +28,7 @@
  http://users.ece.utexas.edu/~valvano/
  */
 #include <stdint.h>
-#include "Timer5A.h"
+#include "Timer4A.h"
 #include "../inc/tm4c123gh6pm.h"
 
 
@@ -38,28 +38,60 @@ void EnableInterrupts(void);  // Enable interrupts
 long StartCritical (void);    // previous I bit, disable interrupts
 void EndCritical(long sr);    // restore I bit to previous value
 void WaitForInterrupt(void);  // low power mode
+void static (*PeriodicTasks[100])(void);   // user function
+static int8_t Index = 0;
+static int32_t Time = 0;
 
 
-// ***************** TIMER5A_Init ****************
-// Activate TIMER5 interrupts to run user task periodically
+// ***************** TIMER4A_Init ****************
+// Activate TIMER4 interrupts to run user task periodically
 // Inputs:  task is a pointer to a user function
 //          period in units (1/clockfreq), 32 bits
 // Outputs: none
-void Timer5A_Init(uint32_t period){long sr;
+void Timer4A_Init(uint32_t period, uint8_t priority){long sr;
   sr = StartCritical(); 
-  SYSCTL_RCGCTIMER_R |= 0x20;   // 0) activate TIMER5
-  TIMER5_CTL_R = 0x00000000;    // 1) disable TIMER5A during setup
-  TIMER5_CFG_R = TIMER_CFG_32_BIT_TIMER;    // 2) configure for 32-bit mode
-  TIMER5_TAMR_R = TIMER_TAMR_TAMR_PERIOD;   // 3) configure for periodic mode, default down-count settings
-  TIMER5_TAILR_R = period-1;    // 4) reload value
-  TIMER5_TAPR_R = 0;            // 5) bus clock resolution
-  TIMER5_ICR_R = TIMER_ICR_TATOCINT;    // 6) clear TIMER5A timeout flag
-  TIMER5_IMR_R = TIMER_IMR_TATOIM;    // 7) arm timeout interrupt
-  NVIC_PRI23_R = (NVIC_PRI23_R&0xFFFFFF00)|(0xC0); // 8) priority 3
+  SYSCTL_RCGCTIMER_R |= 0x10;   // 0) activate TIMER4
+  TIMER4_CTL_R = 0x00000000;    // 1) disable TIMER4A during setup
+  TIMER4_CFG_R = TIMER_CFG_32_BIT_TIMER;    // 2) configure for 32-bit mode
+  TIMER4_TAMR_R = TIMER_TAMR_TAMR_PERIOD;   // 3) configure for periodic mode, default down-count settings
+  TIMER4_TAILR_R = period-1;    // 4) reload value
+  TIMER4_TAPR_R = 0;            // 5) bus clock resolution
+  TIMER4_ICR_R = TIMER_ICR_TATOCINT;    // 6) clear TIMER4A timeout flag
+  TIMER4_IMR_R = TIMER_IMR_TATOIM;    // 7) arm timeout interrupt
+  NVIC_PRI17_R = (NVIC_PRI17_R&0xFF00FFFF)|(priority<<21); // 8) priority 4
 // interrupts enabled in the main program after all devices initialized
 // vector number 35, interrupt number 19
-  NVIC_EN2_R |= 1<<(92-64);           // 9) enable IRQ 66 in NVIC
-  TIMER5_CTL_R = TIMER_CTL_TAEN;    // 10) enable TIMER5A
+  NVIC_EN2_R |= 1<<(70-64);           // 9) enable IRQ 66 in NVIC
+  TIMER4_CTL_R = TIMER_CTL_TAEN;    // 10) enable TIMER4A
   //Index = 0;
   EndCritical(sr);
+}
+
+void Timer4A_AddPeriodicThread(void(*task)(void)){
+  PeriodicTasks[Index] = task;
+  Index += 1;
+}
+
+void Timer4A_ResetPeriodAndPriority(uint32_t period, uint32_t priority){
+  Timer4A_Init(period, priority);
+}
+  
+void Timer4A_ResetPriority(uint32_t priority){
+
+}
+
+void Timer4A_Handler(void){
+  TIMER4_ICR_R = TIMER_ICR_TATOCINT;// acknowledge TIMER4A timeout
+  for(int i = 0; i < Index; i++){
+    (*PeriodicTasks[i])();                // execute user task
+  }
+  Time++;
+}
+
+void Timer4A_ClearPeriodicTime(void){
+  Time = 0;
+}
+
+uint32_t Timer4A_ReadPeriodicTime(void){
+  return Time;
 }

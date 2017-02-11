@@ -49,7 +49,7 @@
 // configure the system to get its clock from the PLL
 // SYSDIV = 400/freq -1
 // bus frequency is 400MHz/(SYSDIV+1)
-void PLL_Init(uint32_t freq){
+uint32_t PLL_Init(uint32_t freq){
   // 0) configure the system to use RCC2 for advanced features
   //    such as 400 MHz PLL and non-integer System Clock Divisor
   SYSCTL_RCC2_R |= SYSCTL_RCC2_USERCC2;
@@ -70,8 +70,9 @@ void PLL_Init(uint32_t freq){
   while((SYSCTL_RIS_R&SYSCTL_RIS_PLLLRIS)==0){};
   // 6) enable use of PLL by clearing BYPASS
   SYSCTL_RCC2_R &= ~SYSCTL_RCC2_BYPASS2;
+    
+  return 400000/(freq+1);
 }
-
 
 /*
 SYSDIV2  Divisor  Clock (MHz)

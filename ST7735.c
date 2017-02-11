@@ -705,10 +705,73 @@ uint32_t Messageindex;
 // X goes from 0 to 127
 int32_t static Xmin, Xmax, Xrange, X, Ymin, Ymax, Yrange;
 
+/* ***************List of Public Functions***************
+ST7735_Line
+ST7735_PlotHist
+ST7735_ds_InitB
+ST7735_ds_InitR
+ST7735_ds_Message
+ST7735_ds_Message3Dec
+ST7735_ds_DrawPixel
+ST7735_ds_DrawFastVLine
+ST7735_ds_DrawFastHLine
+ST7735_ds_FillScreen
+ST7735_ds_FillRect
+ST7735_ds_DrawCharS
+ST7735_ds_DrawChar
+ST7735_ds_DrawString      NOT IMPLEMENTED
+ST7735_ds_SetCursor
+ST7735_ds_OutUDec         NOT IMPLEMENTED
+ST7735_ds_InvertDisplay   NOT IMPLEMENTED
+ST7735_ds_PlotClear       NOT IMPLEMENTED
+ST7735_ds_PlotPoint       NOT IMPLEMENTED
+ST7735_ds_PlotLine        NOT IMPLEMENTED
+ST7735_ds_PlotPoints      NOT IMPLEMENTED
+ST7735_ds_PlotBar         NOT IMPLEMENTED
+ST7735_ds_PlotdBfs        NOT IMPLEMENTED
+ST7735_ds_PlotNext
+ST7735_ds_PlotNextErase
+ST7735_ds_OutChar
+ST7735_ds_OutString
+ST7735_ds_SetTextColor
+ST7735_InitB
+ST7735_InitR
+ST7735_sDecOut3
+ST7735_uBinOut8
+ST7735_XYplotInit
+ST7735_XYplot
+ST7735_DrawPixel
+ST7735_DrawFastVLine
+ST7735_DrawFastHLine
+ST7735_FillScreen
+ST7735_FillRect
+ST7735_Color565
+ST7735_SwapColor
+ST7735_DrawBitmap
+ST7735_DrawCharS
+ST7735_DrawChar
+ST7735_DrawString
+ST7735_SetCursor
+ST7735_OutUDec
+ST7735_SetRotation
+ST7735_InvertDisplay
+ST7735_PlotClear
+ST7735_PlotPoint
+ST7735_PlotLine
+ST7735_PlotPoints
+ST7735_PlotBar
+ST7735_PlotdBfs
+ST7735_PlotNext
+ST7735_PlotNextErase
+ST7735_OutChar
+ST7735_OutString
+ST7735_SetTextColor
+*/
+
 
 // ***************Private Function Prototypes***************
-void static ST7735_ds_commonInit(int8_t s0, int8_t s1, int8_t s2, int8_t s3);
-void static ST7735_ds_screenStats();
+void static ds_commonInit(int8_t s0, int8_t s1, int8_t s2, int8_t s3);
+void static ds_screenStats();
 void static writecommand(uint8_t c);
 void static writedata(uint8_t c);
 void static Delay1ms(uint32_t n);
@@ -734,6 +797,7 @@ void static setAxes(int32_t minX, int32_t maxX, int32_t minY, int32_t maxY);
 void static plotPoint(int32_t x, int32_t y);
 void static HistMaxMin(uint32_t* hist, uint32_t index);
 uint32_t static Distance(uint16_t x1, uint16_t y1, uint16_t x2, uint16_t y2);
+uint32_t Abs(int32_t num);
 
 
 // *****************Function Implementations****************
@@ -741,34 +805,77 @@ uint32_t static Distance(uint16_t x1, uint16_t y1, uint16_t x2, uint16_t y2);
 
 
 //------------ST7735_Line------------
-// Recursive.
+// Recursive. Looks at each pixel around (x,y)1 and finds pixel with shortest distance to (x,y)2. 
+// Recursive call to this point. Demo pixel map follows:
 //            p0    p1    p2
 //            p7  current p3
 //            p6    p5    p4
-void ST7735_Line(uint16_t x1, uint16_t y1, uint16_t x2, uint16_t y2, uint16_t color){uint32_t current, p0, p1, p2, p3, p4, p5, p6, p7, choice;
-  uint8_t newX,newY; //i for x, k for y
-  ST7735_DrawPixel(x1, y1, color);
-  if((x1==x2)&(y1==y2)){
-    return;
+// print to screen
+void ST7735_Line(uint16_t x1, uint16_t y1, uint16_t x2, uint16_t y2, uint16_t color){
+  uint8_t resolution = 16;
+  int16_t xsdiff = x2 - x1;
+  int16_t ysdiff = y2 - y1;
+  uint16_t xudiff = Abs(xsdiff);
+  uint16_t yudiff = Abs(ysdiff);
+  uint16_t  *small, *large, *largeuDiff;
+  int16_t *smallsDiff, *largesDiff;
+  int32_t smallIncr, largeIncr, smallCount, largeCount, smallMove, largeMove; 
+  if(xudiff<yudiff){
+    small = &x1; large = &y1;
+    smallsDiff = &xsdiff; largesDiff = &ysdiff;
+    largeuDiff = &yudiff;
   }
-  choice = 0xFFFFFFFF;
-  for(int i = -1; i <= 1; i++){
-    for(int k = -1; k <= 1; k++){
-      current = Distance(x1+i, y1+k, x2, y2);
-      if(current<choice){
-        choice = current;
-        newX = x1+i; newY = y1+k;
-      }
+  else {
+    small = &y1; large = &x1;
+    smallsDiff = &ysdiff; largesDiff = &xsdiff;
+    largeuDiff = &xudiff;
+  }
+  largeIncr = 1<<resolution;
+  if(*largesDiff<0){
+    largeIncr = (-largeIncr);
+  }
+  smallIncr = (*smallsDiff<<resolution)/(*largeuDiff);
+  smallCount = 0; largeCount = 0;
+  while((x1!=x2)||(y1!=y2)){
+    ST7735_DrawPixel(x1,y1,color);
+    largeCount += largeIncr; smallCount += smallIncr;
+    largeMove = largeCount>>resolution;
+    smallMove = smallCount>>resolution;
+    if(smallMove){
+      *small += smallMove;
+      ST7735_DrawPixel(x1,y1,color);
+      if((x1==x2)&&(y1==y2)){break;}
     }
+    *large += largeMove;
+    largeCount -= largeMove<<resolution;
+    smallCount -= smallMove<<resolution;
   }
-  ST7735_Line(newX, newY, x2, y2, color);
 } 
 
+uint32_t Abs(int32_t num){
+  if(num<0){
+    return (uint32_t)(-num);
+  }
+  return (uint32_t)(num);
+}
+
+//------------Distance------------
+//  calculates psudo-distance between points. For comparison only, because squareroot 
+//  is omitted for effeciency. 
+// input : x1, y1 coordinates for first point
+//         x2, y2 coordinates for second point
+// output: distance
 uint32_t static Distance(uint16_t x1, uint16_t y1, uint16_t x2, uint16_t y2){int32_t xdiff, ydiff;
   xdiff = x1 - x2; ydiff = y1 - y2;
   return (xdiff*xdiff)+(ydiff*ydiff);
 }
 
+//------------ST7735_PlotHist------------
+// plots a centered histogram 
+// input : hist  pointer to array of data
+//         index number of bins for the histogram
+// output: none
+// print to screen
 void ST7735_PlotHist(uint32_t* hist, uint32_t index){int32_t buff1, buff2;
   HistMaxMin(hist, index);
   buff1 = (128 - Xrange)/2; buff2 = 128 - Xrange - buff1;
@@ -784,6 +891,11 @@ void ST7735_PlotHist(uint32_t* hist, uint32_t index){int32_t buff1, buff2;
   }
 }
 
+//------------HistMaxMin------------
+// sets the axes for a histogram
+// input : hist  pointer to array of data
+//         index number of bins for the histogram
+// output: none
 void static HistMaxMin(uint32_t* hist, uint32_t index){int32_t minX, maxX, minY, maxY;
   for(int i = 0; i < index; i++){
     if(hist[i]){
@@ -805,19 +917,13 @@ void static HistMaxMin(uint32_t* hist, uint32_t index){int32_t minX, maxX, minY,
   setAxes(minX, maxX, minY, maxY);
 }
 
-
-/*Some thoughts: while all of his function prototypes claim to accept "row, column" x and y values
-  the drawCharS, drawRect, VLine, and HLine functions seem to take pixel values. I am positive the 
-  drawCharS function is this way, and we can experiment with the other three to see if I am correct
-  This code (to my best effort) has been changed to reflect this inconsistency
-*/
 //------------ST7735_ds_InitB------------
 // 
 // Input: 
 // Output: 
 void ST7735_ds_InitB(int8_t s0, int8_t s1, int8_t s2, int8_t s3){
   ST7735_InitB();
-  ST7735_ds_commonInit(s0, s1, s2, s3);
+  ds_commonInit(s0, s1, s2, s3);
 }
 
 //------------ST7735_ds_InitB------------
@@ -827,14 +933,14 @@ void ST7735_ds_InitB(int8_t s0, int8_t s1, int8_t s2, int8_t s3){
 void ST7735_ds_InitR(enum initRFlags op, int8_t s0, int8_t s1, int8_t s2,
   int8_t s3){
   ST7735_InitR(op);
-  ST7735_ds_commonInit(s0, s1, s2, s3);
+  ds_commonInit(s0, s1, s2, s3);
 }
 
-//------------ST7735_ds_commonInit------------
+//------------ds_commonInit------------
 // 
 // Input: 
 // Output: 
-void static ST7735_ds_commonInit(int8_t s0, int8_t s1, int8_t s2, int8_t s3){
+void static ds_commonInit(int8_t s0, int8_t s1, int8_t s2, int8_t s3){
   uint16_t* p = ds_numLines;
   *p++ = s0; *p++ = s1; *p++ = s2; *p++ = s3; 
   uint8_t totalLines = s0 + s1 + s2 + s3;
@@ -855,15 +961,15 @@ void static ST7735_ds_commonInit(int8_t s0, int8_t s1, int8_t s2, int8_t s3){
     ds_StX[i] = 0;
     ds_StY[i] = ystart[i]/10;
   }
-  ST7735_ds_screenStats();
+  ds_screenStats();
 }
 
-//------------ST7735_ds_screenStats------------
+//------------ds_screenStats------------
 // Screen: #
 // Number of lines: #
 // Input: none
 // Output: none
-void static ST7735_ds_screenStats(){ uint8_t n = 4;
+void static ds_screenStats(){ uint8_t n = 4;
   char* screenStr = "Screen :";
   char* linesStr = "Number of lines:";
   for(uint8_t i = 0; i < n; i++){
