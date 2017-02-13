@@ -2,50 +2,30 @@
 #include <stdio.h>
 #include <stdint.h>
 #include "Alarm.h"
-#include "clock.h"
+#include "Clock.h"
 
-#define MAX_NUM_ALARMS 20
 
-static alarm alarms[MAX_NUM_ALARMS];
+static alarm alarms[20];
 static uint8_t numAlarms = 0;
 
-uint8_t static FindFreeAlarm(void);
+int8_t static findFreeAlarm(void);
 
-uint8_t Alarm_SetNewAlarm(uint8_t hours, uint8_t minutes){
+uint8_t Alarm_Enable(uint8_t hour, uint8_t minute){
 	//find free alarm if available 
-	uint8_t alarmNum = FindFreeAlarm();
-	if(alarmNum == 0xFF){
+	int8_t alarmNum = findFreeAlarm();
+	if(alarmNum == -1){
 		return 0; 
 	}
 	//set alarm 
-	alarms[alarmNum].hours  = hours;
-	alarms[alarmNum].minutes  = minutes;
+	alarms[alarmNum].hour  = hour;
+	alarms[alarmNum].minute  = minute;
 	alarms[alarmNum].valid  = 1;
 	return 1;
 }
 
-uint8_t static FindFreeAlarm(){
-	if(numAlarms == MAX_NUM_ALARMS){
-		return 0xFF;
-	} 
-	else{
-		numAlarms++;
-		for(int i = 0; i < MAX_NUM_ALARMS; i++){
-			if(alarms[i].valid == 0){
-				return i;
-			}
-		}
-	}
-}
-
-uint8_t Alarm_AlarmTriggerd(){
-	//Get current time 
-	uint32_t timeReg = Clock_GetTimeReg();
-	uint8_t hours = Clock_ExtractHour(timeReg);
-	uint8_t minutes = Clock_ExtractMinute(timeReg);
-	//check to see if alarm goes off 
+uint8_t Alarm_Disable(uint8_t hour, uint8_t minute){
 	for(int i = 0; i < 20; i++){
-		if((alarms[i].valid == 1) && (hours == alarms[i].hours) && (alarms[i].minutes == minutes)){
+		if((alarms[i].valid == 1) && (hour == alarms[i].hour) && (alarms[i].minute == minute)){
 			alarms[i].valid = 0; 
 			return 1;
 		}
@@ -53,8 +33,23 @@ uint8_t Alarm_AlarmTriggerd(){
 	return 0;
 }
 
-uint8_t Alarm_AlarmsEnabled(){
-		
+uint8_t Alarm_Check(){
+	//Get current time 
+	uint32_t timeReg = Clock_GetTimeReg();
+	uint8_t hour = Clock_ExtractHour(timeReg);
+	uint8_t minute = Clock_ExtractMinute(timeReg);
+	
+	//check to see if alarm goes off 
+	for(int i = 0; i < 20; i++){
+		if((alarms[i].valid == 1) && (hour == alarms[i].hour) && (alarms[i].minute == minute)){
+			alarms[i].valid = 0; 
+			return 1;
+		}
+	}
+	return 0;
+}
+
+uint8_t Alarm_Number(){
 	uint8_t numAlarmsEnabled = 0;
 	for(int i = 0; i < 20; i++){
 		if(alarms[i].valid == 1){
@@ -64,17 +59,53 @@ uint8_t Alarm_AlarmsEnabled(){
 	return numAlarmsEnabled;
 }
 
-void Alarm_GetAlarms(alarm* alarmsCopy){
-	
+uint8_t Alarm_GetString(char* string, uint8_t index){
+	uint8_t count = 0;
+	uint8_t found = 0;
 	for(int i = 0; i < 20; i++){
 		if(alarms[i].valid == 1){
-			alarmsCopy[i].hours = alarms[i].hours;
-			alarmsCopy[i].minutes = alarms[i].minutes;
-			alarmsCopy[i].valid = alarms[i].valid;
+			count++;
+		}
+		if(count > index){
+			index = i;
+			found = 1;
+			break;
 		}
 	}
+	if(found == 0){
+    sprintf(string,"None    ");
+		return 0;
+	}
+	
+	alarm selectedAlarm = alarms[index];
+	uint8_t timeSplit = 0;
+	uint8_t hour = selectedAlarm.hour;
+	uint8_t minute = selectedAlarm.minute;
+	char* AMPMstr = "AM";
+  char* leadingZeroHour = "";
+  char* leadingZeroMinute = "";
+  if(hour>11){ 
+    AMPMstr = "PM";
+    hour -= 12;
+  }
+  if(hour == 0){ hour = 12; }
+  if(hour<10){ leadingZeroHour = " "; }
+  if(minute<10){ leadingZeroMinute = "0"; }
+  sprintf(string, "%s%d:%s%d %s", leadingZeroHour, hour, leadingZeroMinute, minute, AMPMstr);
+	return 1;
 }
 
-void Alarm_DeleteAlarm(uint8_t hour, uint8_t minute){
-  
+int8_t static findFreeAlarm(){
+	if(numAlarms == 20){
+		return -1;
+	} 
+	else{
+		numAlarms++;
+		for(int i = 0; i < 20; i++){
+			if(alarms[i].valid == 0){
+				return i;
+			}
+		}
+	}
+	return -1;
 }

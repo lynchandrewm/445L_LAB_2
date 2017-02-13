@@ -1,29 +1,26 @@
 //sound.c main drivers for sound module
 #include <stdio.h>
 #include <stdint.h>
-#include "sound.h"
-#include "Timer4a.h"
+#include "Sound.h"
+#include "AlarmClockSysTick.h"
 #define  PF2 							(*((volatile uint32_t *)0x40025010)) 
 
 
-void makeSound(void){
-	PF2 ^= 0x0004;
+uint32_t static notePeriod_A;
+
+void Sound_Init(uint32_t freq){
+  notePeriod_A = (freq*1000)/440;
+  
+  //init port
+  //ensure port low
 }
 
-void soundInit(uint32_t frequency){
-	frequency *= 1000;
-	uint32_t period = 80000000/frequency;
-	Timer4AInit(period, 6);
-	Timer4A_AddPeriodicThread(makeSound);
-}
-
-void startBuzzer(){
-	startTimer();
-}
-
-void stopBuzzer(){
-	stopTimer();
-	PF2 &= 0xFFFC;
+void Sound_FlagEnabledSound(uint8_t* flag){
+  while(*flag){
+    //toggle port
+    SysTick_Wait(notePeriod_A);
+  }
+  //ensure port low
 }
 
 

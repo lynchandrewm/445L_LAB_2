@@ -27,15 +27,21 @@
 #include <stdint.h>
 #include "../inc/tm4c123gh6pm.h"
 #include "Switch.h"
+#include "../driverlib/gpio.h"
+#include "../driverlib/pin_map.h"
+#include "../driverlib/sysctl.h"
+#include "../driverlib/interrupt.h"
 #define PB3                     (*((volatile uint32_t *)0x40005020))
 #define PC6                     (*((volatile uint32_t *)0x40006100))
 #define PF4                     (*((volatile uint32_t *)0x40025040))
 
+/*
 void DisableInterrupts(void); // Disable interrupts
 void EnableInterrupts(void);  // Enable interrupts
 long StartCritical (void);    // previous I bit, disable interrupts
 void EndCritical(long sr);    // restore I bit to previous value
 void WaitForInterrupt(void);  // low power mode
+*/
 
 volatile static unsigned long PreviousPB3;
 volatile static unsigned long PreviousPC6;
@@ -43,12 +49,19 @@ volatile static unsigned long PreviousPF4;
 void (*TouchTaskPB3)(void);
 void (*TouchTaskPC6)(void);
 void (*TouchTaskPF4)(void);
+uint32_t static Bus1ms;
+
+void static PortB_handler(void);
+void static PortC_handler(void);
+void static PortF_handler(void);
+
+
 static void Timer0Arm(void){long sr;
-  sr = StartCritical();
+//  sr = StartCritical();
   TIMER0_CTL_R = 0x00000000;    // 1) disable TIMER0A during setup
   TIMER0_CFG_R = 0x00000000;    // 2) configure for 32-bit mode
   TIMER0_TAMR_R = 0x0000001;    // 3) 1-SHOT mode
-  TIMER0_TAILR_R = 1600000;      // 4) 10ms reload value
+  TIMER0_TAILR_R = Bus1ms*10;      // 4) 100ms reload value
   TIMER0_TAPR_R = 0;            // 5) bus clock resolution
   TIMER0_ICR_R = 0x00000001;    // 6) clear TIMER0A timeout flag
   TIMER0_IMR_R = 0x00000001;    // 7) arm timeout interrupt
@@ -57,67 +70,50 @@ static void Timer0Arm(void){long sr;
 // vector number 35, interrupt number 19
   NVIC_EN0_R = 1<<19;           // 9) enable IRQ 19 in NVIC
   TIMER0_CTL_R = 0x00000001;    // 10) enable TIMER0A
-  EndCritical(sr);
+//  EndCritical(sr);
 }
 static void GPIOArm(void){
-  // clear flags
-  GPIO_PORTB_ICR_R = 0x8;      // (e) clear flag3
-  GPIO_PORTC_ICR_R = 0x40;      // (e) clear flag6
-  GPIO_PORTF_ICR_R = 0x10;      // (e) clear flag4
-  // arm interrupts
-  GPIO_PORTB_IM_R |= 0x8;      // (f) arm interrupt on PB3 *** No IME bit as mentioned in Book ***
-  GPIO_PORTC_IM_R |= 0x40;      // (f) arm interrupt on PC6 *** No IME bit as mentioned in Book ***
-  GPIO_PORTF_IM_R |= 0x10;      // (f) arm interrupt on PF4 *** No IME bit as mentioned in Book ***
-
-  // NVIC PB 1, PC 2, PF 3
-  NVIC_PRI0_R = (NVIC_PRI0_R&0x000000FF)|0xA0A0A000; // (g) priority 5
-  NVIC_PRI7_R = (NVIC_PRI7_R&0xFF00FFFF)|0x00A00000; // (g) priority 5
-  NVIC_EN0_R = 0x4000000E;      // (h) enable interrupt 1,2,3 in NVIC  
+  GPIOIntClear(0x40005000,GPIO_PIN_3);
+  GPIOIntClear(0x40006000,GPIO_PIN_6);
+  GPIOIntClear(0x40025000,GPIO_PIN_4);
+  GPIOIntEnable(0x40005000,GPIO_PIN_3);
+  GPIOIntEnable(0x40006000,GPIO_PIN_6);
+  GPIOIntEnable(0x40025000,GPIO_PIN_4);
+  PreviousPB3 = GPIOPinRead(0x40005000,GPIO_PIN_3);
+  PreviousPC6 = GPIOPinRead(0x40006000,GPIO_PIN_6);
+  PreviousPF4 = GPIOPinRead(0x40025000,GPIO_PIN_4);
 }
 // Initialize switch interface on PF4 
 // Inputs:  pointer to a function to call on touch (falling edge),
 //          pointer to a function to call on release (rising edge)
 // Outputs: none 
-void Switch_Init(void){uint8_t i;
-  // **** general initialization ****
-  SYSCTL_RCGCGPIO_R |= 0x0000002E; // (a) activate clock for port F
-  while((SYSCTL_PRGPIO_R & 0x0000002E) == 0){
-  }
-  
-  GPIO_PORTB_DIR_R &= ~0x8;    // (c) make PB3 in (built-in button)
-  GPIO_PORTB_AFSEL_R &= ~0x8;  //     disable alt funct on PB3
-  GPIO_PORTB_DEN_R |= 0x8;     //     enable digital I/O on PB3   
-  GPIO_PORTB_PCTL_R &= ~0x0000F000; // configure PB3 as GPIO
-  GPIO_PORTB_AMSEL_R = 0;       //     disable analog functionality on PF
-  GPIO_PORTB_PUR_R |= 0x8;     //     enable weak pull-up on PB3
-  GPIO_PORTB_IS_R &= ~0x8;     // (d) PB3 is edge-sensitive
-  GPIO_PORTB_IBE_R |= 0x8;     //     PB3 is both edges
+void Switch_Init(uint32_t freq){Bus1ms = freq;
+  SysCtlPeripheralEnable(SYSCTL_PERIPH_GPIOB);
+  SysCtlPeripheralEnable(SYSCTL_PERIPH_GPIOC);
+  SysCtlPeripheralEnable(SYSCTL_PERIPH_GPIOF);
+  while(!SysCtlPeripheralReady(SYSCTL_PERIPH_GPIOB));
+  while(!SysCtlPeripheralReady(SYSCTL_PERIPH_GPIOC));
+  while(!SysCtlPeripheralReady(SYSCTL_PERIPH_GPIOF));
+  GPIOPinTypeGPIOInput(0x40005000,GPIO_PIN_3);
+  GPIOPinTypeGPIOInput(0x40006000,GPIO_PIN_6);
+  GPIOPinTypeGPIOInput(0x40025000,GPIO_PIN_4);
+  GPIOPadConfigSet(0x40005000, GPIO_PIN_3, GPIO_STRENGTH_2MA, GPIO_PIN_TYPE_STD_WPU);  
+  GPIOPadConfigSet(0x40006000, GPIO_PIN_6, GPIO_STRENGTH_2MA, GPIO_PIN_TYPE_STD_WPU);  
+  GPIOPadConfigSet(0x40025000, GPIO_PIN_4, GPIO_STRENGTH_2MA, GPIO_PIN_TYPE_STD_WPU);  
+  GPIOIntRegister(0x40005000,PortB_handler);
+  GPIOIntRegister(0x40006000,PortC_handler);
+  GPIOIntRegister(0x40025000,PortF_handler);
+  GPIOIntTypeSet(0x40005000,GPIO_PIN_3,GPIO_BOTH_EDGES);
+  GPIOIntTypeSet(0x40006000,GPIO_PIN_6,GPIO_BOTH_EDGES);
+  GPIOIntTypeSet(0x40025000,GPIO_PIN_4,GPIO_BOTH_EDGES);
+  IntPrioritySet(INT_GPIOB,0xE0);
+  IntPrioritySet(INT_GPIOC,0xE0);
+  IntPrioritySet(INT_GPIOF,0xE0);
 
-  GPIO_PORTC_DIR_R &= ~0x40;    // (c) make PC6 in (built-in button)
-  GPIO_PORTC_AFSEL_R &= ~0x40;  //     disable alt funct on PC6
-  GPIO_PORTC_DEN_R |= 0x40;     //     enable digital I/O on PC6   
-  GPIO_PORTC_PCTL_R &= ~0x0F000000; // configure PC6 as GPIO
-  GPIO_PORTC_AMSEL_R = 0;       //     disable analog functionality on PF
-  GPIO_PORTC_PUR_R |= 0x40;     //     enable weak pull-up on PC6
-  GPIO_PORTC_IS_R &= ~0x40;     // (d) PC6 is edge-sensitive
-  GPIO_PORTC_IBE_R |= 0x40;     //     PC6 is both edges
-
-  GPIO_PORTF_DIR_R &= ~0x10;    // (c) make PF4 in (built-in button)
-  GPIO_PORTF_AFSEL_R &= ~0x10;  //     disable alt funct on PF4
-  GPIO_PORTF_DEN_R |= 0x10;     //     enable digital I/O on PF4   
-  GPIO_PORTF_PCTL_R &= ~0x000F0000; // configure PF4 as GPIO
-  GPIO_PORTF_AMSEL_R = 0;       //     disable analog functionality on PF
-  GPIO_PORTF_PUR_R |= 0x10;     //     enable weak pull-up on PF4
-  GPIO_PORTF_IS_R &= ~0x10;     // (d) PF4 is edge-sensitive
-  GPIO_PORTF_IBE_R |= 0x10;     //     PF4 is both edges
     
   GPIOArm();
 
   SYSCTL_RCGCTIMER_R |= 0x01;   // 0) activate TIMER0
-  
-  PreviousPB3 = PB3;
-  PreviousPC6 = PC6;
-  PreviousPF4 = PF4;
 }
 
 
@@ -134,20 +130,16 @@ void Switch_AssignTask(uint8_t switchNumber, void(*touchtask)(void)){
       break;
   }
 }
- 
+
 void static CommonHandler(void){
-  // clear flags
-  GPIO_PORTB_ICR_R = 0x8;      // (e) clear flag3
-  GPIO_PORTC_ICR_R = 0x40;      // (e) clear flag6
-  GPIO_PORTF_ICR_R = 0x10;      // (e) clear flag4
-  // disarm interrupts
-  GPIO_PORTB_IM_R &= ~0x8;      // (f) arm interrupt on PB3 *** No IME bit as mentioned in Book ***
-  GPIO_PORTC_IM_R &= ~0x40;      // (f) arm interrupt on PC6 *** No IME bit as mentioned in Book ***
-  GPIO_PORTF_IM_R &= ~0x10;      // (f) arm interrupt on PF4 *** No IME bit as mentioned in Book ***
+  GPIOIntDisable(0x40005000,GPIO_PIN_3);
+  GPIOIntDisable(0x40006000,GPIO_PIN_6);
+  GPIOIntDisable(0x40025000,GPIO_PIN_4);
 }
   
 //interrupts on edge triggered switch 
-void GPIOPortB_Handler(void){
+void static PortB_handler(void){
+  GPIOIntClear(0x40005000,GPIO_PIN_3);
   CommonHandler();
   if(PreviousPB3){
     (*TouchTaskPB3)();
@@ -156,7 +148,8 @@ void GPIOPortB_Handler(void){
 }
 
 //interrupts on edge triggered switch 
-void GPIOPortC_Handler(void){
+void static PortC_handler(void){
+  GPIOIntClear(0x40006000,GPIO_PIN_6);
   CommonHandler();
   if(PreviousPC6){
     (*TouchTaskPC6)();
@@ -165,7 +158,8 @@ void GPIOPortC_Handler(void){
 }
 
 //interrupts on edge triggered switch 
-void GPIOPortF_Handler(void){
+void static PortF_handler(void){
+  GPIOIntClear(0x40025000,GPIO_PIN_4);
   CommonHandler();
   if(PreviousPF4){
     (*TouchTaskPF4)();
@@ -176,8 +170,5 @@ void GPIOPortF_Handler(void){
 // Interrupt 10 ms after rising edge of PF4
 void Timer0A_Handler(void){uint8_t i;
   TIMER0_IMR_R = 0x00000000;    // disarm timeout interrupt  
-  PreviousPB3 = PB3;
-  PreviousPF4 = PF4;
-  PreviousPC6 = PC6;
   GPIOArm();   // start GPIO
 }

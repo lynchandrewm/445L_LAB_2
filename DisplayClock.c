@@ -993,9 +993,9 @@ void static PrintTitle(){
 
 void static PrintAlarmString(char* alarm){
 	//Cursor top right  
-	ST7735_SetCursor(13,0);
+	ST7735_SetCursor(12,0);
 	ST7735_OutString("Alarms:");
-	ST7735_SetCursor(13,1);
+	ST7735_SetCursor(12,1);
 	ST7735_OutString(alarm);
 }
 
@@ -1008,20 +1008,21 @@ void static PrintHands(uint8_t second, uint8_t minute, uint8_t hour){
   ST7735_Line(Center.x,Center.y,Secondhand[second].x,Secondhand[second].y,ST7735_RED);
   ST7735_Line(Center.x,Center.y,Minutehand[minute].x,Minutehand[minute].y,ST7735_WHITE);
   ST7735_Line(Center.x,Center.y,Hourhand[hour].x,Hourhand[hour].y,ST7735_WHITE);
+  previousSecondHand = second; previousMinuteHand = minute; previousHourHand = hour;
 }
 
 void static UpdateHands(uint8_t second, uint8_t minute, uint8_t hour){
   if(second!=previousSecondHand){
     ST7735_Line(Center.x,Center.y,Secondhand[previousSecondHand].x,Secondhand[previousSecondHand].y,ST7735_BLACK);
   }
-  ST7735_Line(Center.x,Center.y,Secondhand[second].x,Secondhand[second].y,ST7735_RED);
   if(minute!=previousMinuteHand){
     ST7735_Line(Center.x,Center.y,Minutehand[previousMinuteHand].x,Minutehand[previousMinuteHand].y,ST7735_BLACK);
   }
-  ST7735_Line(Center.x,Center.y,Minutehand[minute].x,Minutehand[minute].y,ST7735_WHITE);
   if(hour!=previousHourHand){
     ST7735_Line(Center.x,Center.y,Hourhand[previousHourHand].x,Hourhand[previousHourHand].y,ST7735_BLACK);
   }
+  ST7735_Line(Center.x,Center.y,Secondhand[second].x,Secondhand[second].y,ST7735_RED);
+  ST7735_Line(Center.x,Center.y,Minutehand[minute].x,Minutehand[minute].y,ST7735_WHITE);
   ST7735_Line(Center.x,Center.y,Hourhand[hour].x,Hourhand[hour].y,ST7735_WHITE);
   previousSecondHand = second; previousMinuteHand = minute; previousHourHand = hour;
 }

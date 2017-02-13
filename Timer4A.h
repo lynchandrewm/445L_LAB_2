@@ -32,15 +32,6 @@
 // Inputs:  task is a pointer to a user function
 //          period in units (1/clockfreq), 32 bits
 // Outputs: none
-void Timer4A_Init(uint32_t period, uint8_t priority);
-
-void Timer4A_AddPeriodicThread(void(*task)(void));
-
-uint32_t Timer4A_ReadPeriodicTime(void);
-
-void Timer4A_ClearPeriodicTime(void);
-
-void Timer4A_ResetPeriodAndPriority(uint32_t period, uint32_t priority);
-
+void Timer4A_Init(uint32_t period, uint8_t priority, void(*task)(void));
 
 #endif // __TIMER4AINTS_H__

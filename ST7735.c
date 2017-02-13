@@ -859,17 +859,6 @@ uint32_t Abs(int32_t num){
   return (uint32_t)(num);
 }
 
-//------------Distance------------
-//  calculates psudo-distance between points. For comparison only, because squareroot 
-//  is omitted for effeciency. 
-// input : x1, y1 coordinates for first point
-//         x2, y2 coordinates for second point
-// output: distance
-uint32_t static Distance(uint16_t x1, uint16_t y1, uint16_t x2, uint16_t y2){int32_t xdiff, ydiff;
-  xdiff = x1 - x2; ydiff = y1 - y2;
-  return (xdiff*xdiff)+(ydiff*ydiff);
-}
-
 //------------ST7735_PlotHist------------
 // plots a centered histogram 
 // input : hist  pointer to array of data

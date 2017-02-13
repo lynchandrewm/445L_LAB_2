@@ -38,9 +38,8 @@ void EnableInterrupts(void);  // Enable interrupts
 long StartCritical (void);    // previous I bit, disable interrupts
 void EndCritical(long sr);    // restore I bit to previous value
 void WaitForInterrupt(void);  // low power mode
-void static (*PeriodicTasks[100])(void);   // user function
-static int8_t Index = 0;
-static int32_t Time = 0;
+
+void static (*PeriodicTask)(void);   // user function
 
 
 // ***************** TIMER4A_Init ****************
@@ -48,7 +47,7 @@ static int32_t Time = 0;
 // Inputs:  task is a pointer to a user function
 //          period in units (1/clockfreq), 32 bits
 // Outputs: none
-void Timer4A_Init(uint32_t period, uint8_t priority){long sr;
+void Timer4A_Init(uint32_t period, uint8_t priority, void(*task)(void)){long sr;
   sr = StartCritical(); 
   SYSCTL_RCGCTIMER_R |= 0x10;   // 0) activate TIMER4
   TIMER4_CTL_R = 0x00000000;    // 1) disable TIMER4A during setup
@@ -63,35 +62,11 @@ void Timer4A_Init(uint32_t period, uint8_t priority){long sr;
 // vector number 35, interrupt number 19
   NVIC_EN2_R |= 1<<(70-64);           // 9) enable IRQ 66 in NVIC
   TIMER4_CTL_R = TIMER_CTL_TAEN;    // 10) enable TIMER4A
-  //Index = 0;
+  PeriodicTask = task;
   EndCritical(sr);
-}
-
-void Timer4A_AddPeriodicThread(void(*task)(void)){
-  PeriodicTasks[Index] = task;
-  Index += 1;
-}
-
-void Timer4A_ResetPeriodAndPriority(uint32_t period, uint32_t priority){
-  Timer4A_Init(period, priority);
-}
-  
-void Timer4A_ResetPriority(uint32_t priority){
-
 }
 
 void Timer4A_Handler(void){
   TIMER4_ICR_R = TIMER_ICR_TATOCINT;// acknowledge TIMER4A timeout
-  for(int i = 0; i < Index; i++){
-    (*PeriodicTasks[i])();                // execute user task
-  }
-  Time++;
-}
-
-void Timer4A_ClearPeriodicTime(void){
-  Time = 0;
-}
-
-uint32_t Timer4A_ReadPeriodicTime(void){
-  return Time;
+  (*PeriodicTask)();                // execute user task
 }

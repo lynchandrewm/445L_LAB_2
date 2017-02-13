@@ -14,13 +14,13 @@
 #include "Alarm.h"
 #include "Clock.h"
 #include "ST7735.h"
-#include "../driverlib/gpio.h"
 #include "Switch.h"
-#include "SysTick.h"
+#include "AlarmClockSysTick.h"
 
 #define PB3                     (*((volatile uint32_t *)0x40005020))
 #define PC6                     (*((volatile uint32_t *)0x40006100))
 #define PF4                     (*((volatile uint32_t *)0x40025040))
+
 
 void DisableInterrupts(void); // Disable interrupts
 void EnableInterrupts(void);  // Enable interrupts
@@ -28,12 +28,13 @@ long StartCritical (void);    // previous I bit, disable interrupts
 void EndCritical(long sr);    // restore I bit to previous value
 void WaitForInterrupt(void);  // low power mode
 
+
 uint32_t CountLeft, CountMiddle, CountRight;
 
 // prototypes of private functions
 
 // ----------Test Main----------
-int main1(void){
+int main(void){
   AlarmClock_Init(PLL_Init(Bus80MHz));
   while(1){
     AlarmClock_Start();
@@ -41,7 +42,7 @@ int main1(void){
 }
 
 
-int main(void){
+int main654(void){
   Clock_Init(PLL_Init(Bus80MHz));
   ST7735_InitR(INITR_REDTAB);
   char timeString[20];
@@ -72,16 +73,15 @@ void switchTestTaskRight(void){
   CountRight++;
 }
 
+
 // ----------Test Switch----------
-int main324(void){
-  PLL_Init(Bus80MHz);
+int main321(void){
+  uint32_t freq = PLL_Init(Bus80MHz);
   ST7735_InitR(INITR_REDTAB);
-  GPIOIntEnable(0x40005000,GPIO_INT_PIN_3);
-  GPIOIntRegister(0x40005000,switchTestTaskMiddle);
-  GPIOIntEnable(0x40006000,GPIO_INT_PIN_6);
-  GPIOIntRegister(0x40006000,switchTestTaskMiddle);
-  GPIOIntEnable(0x40025000,GPIO_INT_PIN_4);
-  GPIOIntRegister(0x40025000,switchTestTaskMiddle);
+  Switch_Init(freq);
+  Switch_AssignTask(0,switchTestTaskLeft);
+  Switch_AssignTask(1,switchTestTaskMiddle);
+  Switch_AssignTask(2,switchTestTaskRight);
   EnableInterrupts();
   CountLeft = 0; CountMiddle = 0; CountRight = 0;
   while(1){

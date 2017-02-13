@@ -1,46 +1,53 @@
 /*Alarm.h - this file contains the functions for module Alarm*/
-
-#ifndef _ALARM
-#define _ALARM
+#include <stdint.h>
 
 typedef struct alarm{
-	uint8_t hours;
-	uint8_t minutes;
+	uint8_t hour;
+	uint8_t minute;
 	uint8_t valid;
 } alarm;
 
-void Alarm_DeleteAlarm(uint8_t hour, uint8_t minute);
-
-/****************setNewAlarm***************
+/****************Alarm_Enable***************
  If possible, set an alarm to the hour and minute specified. 
  If sucessful return 1, else if not sucessful or no alarm available return 0
  Inputs:  unsined 8-bit integer hours and unsined 8-bit integer minutes 
  Outputs: 1 if successful, 0 if not 
  */ 
-uint8_t Alarm_SetNewAlarm(uint8_t hours, uint8_t minutes);
+uint8_t Alarm_Enable(uint8_t hours, uint8_t minutes);
 
-/****************alarmTriggered***************
+/****************Alarm_Disable***************
+ If possible, remove an alarm set to the hour and minute specified. 
+ If sucessful return 1, else if not sucessful or no alarm available return 0
+ Inputs:  unsined 8-bit integer hours and unsined 8-bit integer minutes 
+ Outputs: 1 if successful, 0 if not 
+ */ 
+uint8_t Alarm_Disable(uint8_t hours, uint8_t minutes);
+
+/****************Alarm_Check***************
  Checks to see if any alarms are triggered. If so, return 1 and 
  remove triggered alarm. If not, do nothing and return 0;
  Inputs:  none
  Outputs: 1 if an alarm triggered, 0 if not
  */ 
-uint8_t Alarm_AlarmTriggered(void);
+uint8_t Alarm_Check(void);
 
-/****************alarmsEnabled***************
+/****************Alarm_Number***************
  Checks to see if any alarms are enabled. If so, return the number enabled 
  If not, do nothing and return 0;
  Inputs:  none
  Outputs: number of alarms if alarms enabled, 0 if not
  */ 
-uint8_t Alarm_AlarmsEnabled(void);
+uint8_t Alarm_Number(void);
 
-/****************viewActiveAlarms***************
- Makes array of enabled alarms. Copys enabled alarms into 
- user giver array.
- Inputs:  Pointer to array for copying alarms
- Outputs: none
+/****************Alarm_GetString***************
+ Checks to see if any alarms are enabled. If so, print the string representation of the enabled one at the specified index
+ If not, do nothing and return 0;
+ Inputs:   
+ Outputs: 1 if successful , 0 if not
  */ 
-void Alarm_GetAlarms(alarm* alarmsCopy);
+uint8_t Alarm_GetString(char* string, uint8_t index);
 
-#endif
+
+
+
+

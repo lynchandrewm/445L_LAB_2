@@ -5,19 +5,13 @@
  Inputs:  frequency of buzzer
  Outputs: none
  */ 
-void soundInit(uint32_t frequency);
+void Sound_Init(uint32_t freq);
 
 
 /****************startBuzzer***************
- Starts the alarm buzzer
+ Runs the sound until flag is made false
  Inputs:  none
  Outputs: none
  */ 
-void startBuzzer(void);
+void Sound_FlagEnabledSound(uint8_t* flag);
 
-/****************stopBuzzer***************
- Stops the alarm Buzzer
- Inputs:  none
- Outputs: none
- */ 
-void stopBuzzer(void); 
